@@ -1,0 +1,27 @@
+[package]
+name = "one-mirror"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+axum = "0.8"
+hyper = { version = "1", features = ["full"] }
+hyper-tls = "0.6"
+hyper-util = { version = "0.1", features = ["client-legacy"] }
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+structopt = "0.3"
+
+[profile.release]
+# 开启链接时优化 (Link-Time Optimization)，允许编译器跨 crate 进行优化
+lto = true
+# 优化级别，'z' 表示“尽一切可能减小大小”
+opt-level = "z"
+# 移除调试符号信息。等同于在编译后运行 \`strip\` 命令
+strip = true
+# 将代码生成单元减少到 1，为 LTO 提供最大的优化空间，但这会减慢编译速度
+codegen-units = 1
+# 配置 panic 时的行为为直接终止程序，而不是“栈展开”
+# 这可以移除与栈展开相关的元数据和逻辑
+panic = "abort"
