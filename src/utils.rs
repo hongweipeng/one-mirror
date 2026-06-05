@@ -106,3 +106,37 @@ pub async fn reverse_proxy(
 
     Ok(response)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::{HeaderMap, HeaderValue};
+
+    #[test]
+    fn test_headers_get_existing_key() {
+        let mut headers = HeaderMap::new();
+        headers.insert("user-agent", HeaderValue::from_static("docker/20.10"));
+        assert_eq!(headers_get(&headers, "user-agent"), Some("docker/20.10"));
+    }
+
+    #[test]
+    fn test_headers_get_missing_key() {
+        let headers = HeaderMap::new();
+        assert_eq!(headers_get(&headers, "user-agent"), None);
+    }
+
+    #[test]
+    fn test_headers_get_host() {
+        let mut headers = HeaderMap::new();
+        headers.insert("host", HeaderValue::from_static("example.com"));
+        assert_eq!(headers_get(&headers, "host"), Some("example.com"));
+    }
+
+    #[test]
+    fn test_headers_get_case_insensitive() {
+        // HeaderMap 本身对 key 做大小写无关查找
+        let mut headers = HeaderMap::new();
+        headers.insert("Content-Type", HeaderValue::from_static("text/html"));
+        assert_eq!(headers_get(&headers, "content-type"), Some("text/html"));
+    }
+}

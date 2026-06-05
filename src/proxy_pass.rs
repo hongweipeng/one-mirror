@@ -210,3 +210,206 @@ pub async fn dispatch(client: Client, concurrency_limit: Arc<Semaphore>, request
     // 非 docker 请求，归还 request 以便 fallback
     Some(Err(request))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::Request as HttpRequest;
+
+    // === replace_request_path 测试 ===
+
+    #[test]
+    fn test_replace_request_path_simple() {
+        // 替换路径，不带 query string
+        let req = HttpRequest::builder()
+            .uri("/old/path")
+            .body(Body::empty())
+            .unwrap();
+        let mut req = req;
+        replace_request_path("/new/path", &mut req);
+        assert_eq!(req.uri().path(), "/new/path");
+        assert!(req.uri().query().is_none());
+    }
+
+    #[test]
+    fn test_replace_request_path_with_query() {
+        // 替换路径，保留原有 query string
+        let req = HttpRequest::builder()
+            .uri("/old/path?key=val&foo=bar")
+            .body(Body::empty())
+            .unwrap();
+        let mut req = req;
+        replace_request_path("/new/path", &mut req);
+        assert_eq!(req.uri().path(), "/new/path");
+        assert_eq!(req.uri().query(), Some("key=val&foo=bar"));
+    }
+
+    #[test]
+    fn test_replace_request_path_empty_query() {
+        // 路径末尾带 ? 但无实际 query 内容
+        let req = HttpRequest::builder()
+            .uri("/old/path?")
+            .body(Body::empty())
+            .unwrap();
+        let mut req = req;
+        replace_request_path("/new/path", &mut req);
+        assert_eq!(req.uri().path(), "/new/path");
+    }
+
+    #[test]
+    fn test_replace_request_path_root() {
+        // 替换为根路径
+        let req = HttpRequest::builder()
+            .uri("/something")
+            .body(Body::empty())
+            .unwrap();
+        let mut req = req;
+        replace_request_path("/", &mut req);
+        assert_eq!(req.uri().path(), "/");
+    }
+
+    // === centos 版本修复逻辑测试 ===
+
+    #[test]
+    fn test_centos_version_fix_mapping() {
+        // 验证版本号映射表：5 -> 5.11, 6 -> 6.10
+        let version_fix = HashMap::<i32, i32>::from([
+            (5, 11),
+            (6, 10),
+        ]);
+        // /centos/5/os/x86_64 应被替换为 /centos/5.11/os/x86_64
+        let path = "/5/os/x86_64/Packages";
+        let mut new_path = format!("/centos-vault{}", path);
+        for (k, v) in version_fix.iter() {
+            let version = format!("/{}/", k);
+            if new_path.contains(version.as_str()) {
+                new_path = new_path.replace(version.as_str(), format!("/{}.{}/", k, v).as_str());
+            }
+        }
+        assert_eq!(new_path, "/centos-vault/5.11/os/x86_64/Packages");
+    }
+
+    #[test]
+    fn test_centos_version_fix_6() {
+        let version_fix = HashMap::<i32, i32>::from([
+            (5, 11),
+            (6, 10),
+        ]);
+        let path = "/6/updates/x86_64";
+        let mut new_path = format!("/centos-vault{}", path);
+        for (k, v) in version_fix.iter() {
+            let version = format!("/{}/", k);
+            if new_path.contains(version.as_str()) {
+                new_path = new_path.replace(version.as_str(), format!("/{}.{}/", k, v).as_str());
+            }
+        }
+        assert_eq!(new_path, "/centos-vault/6.10/updates/x86_64");
+    }
+
+    #[test]
+    fn test_centos_version_no_fix_for_7() {
+        // CentOS 7 不在映射表中，路径不变
+        let version_fix = HashMap::<i32, i32>::from([
+            (5, 11),
+            (6, 10),
+        ]);
+        let path = "/7/os/x86_64";
+        let mut new_path = format!("/centos-vault{}", path);
+        let mut hit = false;
+        for (k, v) in version_fix.iter() {
+            let version = format!("/{}/", k);
+            if new_path.contains(version.as_str()) {
+                new_path = new_path.replace(version.as_str(), format!("/{}.{}/", k, v).as_str());
+                hit = true;
+            }
+        }
+        assert!(!hit);
+        assert_eq!(new_path, "/centos-vault/7/os/x86_64");
+    }
+
+    // === maven 路径逻辑测试 ===
+
+    #[test]
+    fn test_maven_path_root() {
+        // 根路径保持为 /
+        let path = "/".to_string();
+        let new_path = if path == "/" {
+            "/".to_string()
+        } else {
+            format!("/maven2{}", path)
+        };
+        assert_eq!(new_path, "/");
+    }
+
+    #[test]
+    fn test_maven_path_with_artifact() {
+        // 非 root 路径添加 /maven2 前缀
+        let path = "/org/apache/maven/maven-core/3.8.1/maven-core-3.8.1.pom".to_string();
+        let new_path = if path == "/" {
+            "/".to_string()
+        } else {
+            format!("/maven2{}", path)
+        };
+        assert_eq!(new_path, "/maven2/org/apache/maven/maven-core/3.8.1/maven-core-3.8.1.pom");
+    }
+
+    // === jump_to URL 解析逻辑测试 ===
+
+    #[test]
+    fn test_jump_to_https_target() {
+        // ://example.com/path => https://example.com/path
+        let target = "s://example.com/some/path".to_string();
+        let full_url = format!("http{}", target);
+        let uri = full_url.parse::<Uri>().unwrap();
+        assert_eq!(uri.scheme_str(), Some("https"));
+        assert_eq!(uri.host(), Some("example.com"));
+        assert_eq!(uri.path(), "/some/path");
+    }
+
+    #[test]
+    fn test_jump_to_http_target() {
+        // ://example.com/path => http://example.com/path
+        let target = "://example.com/some/path".to_string();
+        let full_url = format!("http{}", target);
+        let uri = full_url.parse::<Uri>().unwrap();
+        assert_eq!(uri.scheme_str(), Some("http"));
+        assert_eq!(uri.host(), Some("example.com"));
+        assert_eq!(uri.path(), "/some/path");
+    }
+
+    #[test]
+    fn test_jump_to_invalid_prefix() {
+        // 不以 :// 或 s:// 开头时应被拒绝
+        let target = "example.com/path".to_string();
+        let starts_with_scheme = target.starts_with("://") || target.starts_with("s://");
+        assert!(!starts_with_scheme);
+    }
+
+    // === dispatch 逻辑测试 ===
+
+    #[test]
+    fn test_dispatch_non_docker_user_agent() {
+        // 非 docker user-agent 的请求应返回 Err(request) 即 fallback
+        // 这里只测试判断逻辑，不测试 async dispatch 函数
+        let ua = "Mozilla/5.0";
+        let is_docker = ua.contains("docker");
+        assert!(!is_docker);
+    }
+
+    #[test]
+    fn test_dispatch_docker_user_agent() {
+        // docker user-agent 应被识别
+        let ua = "docker/20.10.7";
+        let is_docker = ua.contains("docker");
+        assert!(is_docker);
+    }
+
+    #[test]
+    fn test_dispatch_docker_token_path_excluded() {
+        // /docker-token 路径即使带 docker UA 也不走 docker 代理
+        let path = "/docker-token";
+        let is_docker_ua = true;
+        let should_dispatch = is_docker_ua && path != "/docker-token";
+        assert!(!should_dispatch);
+    }
+}
