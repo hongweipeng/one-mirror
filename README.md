@@ -132,3 +132,10 @@ export GOPROXY=https://mirrors.xxx.com/goproxy,direct
 }
 ```
 
+# github
+```
+git clone https://mirrors.xxx.com/github.com/xxx/xxx.git
+
+wget https://mirrors.xxx.com/github.com/xxx/xxx/xxx.zip
+```
+

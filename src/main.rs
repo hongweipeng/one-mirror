@@ -76,6 +76,7 @@ async fn main() {
         .route("/docker-token", any(proxy_pass::docker_auth))
         .route("/goproxy/sumdb/sum.golang.org{*path}", any(proxy_pass::sum_goproxy))
         .route("/goproxy{*path}", any(proxy_pass::goproxy))
+        .route("/github.com{*path}", any(proxy_pass::github))
         .route("/http{*target}", any(proxy_pass::jump_to))
         .fallback(handler_404)
         .layer(middleware::from_fn_with_state(

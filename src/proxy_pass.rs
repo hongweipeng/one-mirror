@@ -163,6 +163,11 @@ pub async fn sum_goproxy(Path(path): Path<String>, State(state): State<AppState>
     reverse_proxy(state.client, state.concurrency_limit, req, "sum.golang.org").await
 }
 
+pub async fn github(Path(path): Path<String>, State(state): State<AppState>, mut req: Request) -> Result<Response, StatusCode> {
+    replace_request_path(&path, &mut req);
+    reverse_proxy(state.client, state.concurrency_limit, req, "github.com").await
+}
+
 pub async fn jump_to(Path(target): Path<String>, State(state): State<AppState>, mut req: Request) -> Result<Response, StatusCode> {
     if target.starts_with("://") || target.starts_with("s://") {
         let full_url = format!("http{}", target);
