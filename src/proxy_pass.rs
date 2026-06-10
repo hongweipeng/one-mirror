@@ -61,7 +61,24 @@ pub async fn debian(State(state): State<AppState>, req: Request) -> Result<Respo
     if req.uri().path().starts_with("/debian-security") { // 归档地址没有安全更新
         target = "deb.debian.org";
     }
-    reverse_proxy(state.client, state.concurrency_limit, req, target).await
+    // 先尝试主目标，若返回 404 则回退到 deb.debian.org
+    let fallback_needed = target != "deb.debian.org";
+    if fallback_needed {
+        // 克隆请求体，以便 404 时能重试
+        let (parts, body) = req.into_parts();
+        let body_bytes = axum::body::to_bytes(body, usize::MAX).await.map_err(|_| StatusCode::BAD_REQUEST)?;
+        let req1 = Request::from_parts(parts.clone(), Body::from(body_bytes.clone()));
+        let req2 = Request::from_parts(parts, Body::from(body_bytes));
+        let response = reverse_proxy(state.client.clone(), state.concurrency_limit.clone(), req1, target).await?;
+        if response.status() == StatusCode::NOT_FOUND {
+            // 主目标返回 404，回退到 deb.debian.org
+            tracing::info!("debian mirror returned 404, falling back to deb.debian.org");
+            return reverse_proxy(state.client, state.concurrency_limit, req2, "deb.debian.org").await;
+        }
+        Ok(response)
+    } else {
+        reverse_proxy(state.client, state.concurrency_limit, req, target).await
+    }
 }
 
 pub async fn ubuntu(State(state): State<AppState>, req: Request) -> Result<Response, StatusCode> {
