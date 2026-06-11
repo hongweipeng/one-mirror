@@ -29,14 +29,14 @@
 假设域名使用 `mirrors.xxx.com`
 
 # debian
-debian12
+debian12 及其以上：
 ```
 cp -a /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list.d/debian.sources.bak
 sed -i 's@deb.debian.org@mirrors.xxx.com@g' /etc/apt/sources.list.d/debian.sources
 sed -i "s@security.debian.org@mirrors.xxx.com@g" /etc/apt/sources.list.d/debian.sources
 ```
 
-debian11 及其之前
+debian11 及其之前：
 ```
 cp -a /etc/apt/sources.list /etc/apt/sources.list.bak
 sed -i "s@deb.debian.org@mirrors.xxx.com@g" /etc/apt/sources.list
@@ -45,6 +45,15 @@ sed -i "s@security.debian.org@mirrors.xxx.com@g" /etc/apt/sources.list
 
 
 # ubuntu
+24.04 及其以上：
+```
+cp /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list.d/ubuntu.sources.bak \
+    && sed -i "s@archive.ubuntu.com@mirrors.xxx.com@g" /etc/apt/sources.list.d/ubuntu.sources  \
+    && sed -i "s@security.ubuntu.com@mirrors.xxx.com@g" /etc/apt/sources.list.d/ubuntu.sources  \
+    && sed -i "s@ports.ubuntu.com@mirrors.xxx.com@g" /etc/apt/sources.list.d/ubuntu.sources
+```
+
+24.04 之前：
 ```
 cp /etc/apt/sources.list /etc/apt/sources.list.bak \
     && sed -i "s@archive.ubuntu.com@mirrors.xxx.com@g" /etc/apt/sources.list \
