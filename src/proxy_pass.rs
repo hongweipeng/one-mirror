@@ -64,6 +64,10 @@ pub async fn debian(State(state): State<AppState>, req: Request) -> Result<Respo
     try_proxy_chain(&mut State(state), req, &targets, StatusCode::NOT_FOUND).await
 }
 
+pub async fn pve(State(state): State<AppState>, req: Request) -> Result<Response, StatusCode> {
+    reverse_proxy(state.client, state.concurrency_limit, req, "enterprise.proxmox.com").await
+}
+
 pub async fn ubuntu(State(state): State<AppState>, req: Request) -> Result<Response, StatusCode> {
     reverse_proxy(state.client, state.concurrency_limit, req, "archive.ubuntu.com").await
 }

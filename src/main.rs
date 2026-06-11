@@ -64,6 +64,7 @@ async fn main() {
     let app = Router::new()
         .route("/", get(handler))
         .route("/centos{*path}", any(proxy_pass::centos))
+        .route("/debian/pve{*path}", any(proxy_pass::pve))
         .route("/debian{*path}", any(proxy_pass::debian))
         .route("/ubuntu{*path}", any(proxy_pass::ubuntu))
         .route("/alpine{*path}", any(proxy_pass::alpine))
