@@ -84,16 +84,7 @@ pub async fn rust_crates_index(Path(path): Path<String>, State(state): State<App
 
 pub async fn pypi(Path(path): Path<String>, State(state): State<AppState>, mut req: Request) -> Result<Response, StatusCode> {
     // 去掉 /pypi 前缀，使 /pypi/simple -> pypi.org/simple
-    let uri = req.uri().clone();
-    let origin_path = uri.path();
-    let new_path = path;
-    let new_path_query = uri
-        .path_and_query()
-        .and_then(|pq| pq.query())
-        .map(|q| format!("{new_path}?{q}"))
-        .unwrap_or_else(|| new_path.to_string());
-    tracing::info!("origin path: {:?} new path query: {:?}", origin_path, new_path_query);
-    *req.uri_mut() = Uri::try_from(new_path_query).map_err(|_| StatusCode::BAD_REQUEST)?;
+    replace_request_path(&path, &mut req);
     reverse_proxy(state.client, state.concurrency_limit, req, "pypi.org").await
 }
 
