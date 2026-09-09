@@ -163,6 +163,10 @@ pub async fn github(Path(path): Path<String>, State(state): State<AppState>, mut
     reverse_proxy(state.client, state.concurrency_limit, req, "github.com").await
 }
 
+pub async fn gravatar(State(state): State<AppState>, req: Request) -> Result<Response, StatusCode> {
+    reverse_proxy(state.client, state.concurrency_limit, req, "gravatar.com").await
+}
+
 pub async fn try_proxy_chain(State(state): &mut State<AppState>, req: Request, targets: &Vec<&str>, status_code: StatusCode) -> Result<Response, StatusCode> {
     let (parts, body) = req.into_parts();
     let body_bytes = axum::body::to_bytes(body, usize::MAX).await.map_err(|_| StatusCode::BAD_REQUEST)?;
